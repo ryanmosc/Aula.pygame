@@ -9,15 +9,17 @@ imagemFundo = pygame.image.load("img/espaço.png")
 imagemAsteroide = pygame.image.load("img/asteroide.png")  # Corrigido aqui
 imagemNave = pygame.image.load("img/nave.png.png")
 imageRaio = pygame.image.load("img/raio.png")
-imageTiro = pygame.image.load("img/raio.png")
+imageTiro = pygame.image.load("img/lazer.png")
 imageAlien = pygame.image.load("img/alien.png")
+imageEstrela = pygame.image.load("img/dragonball.png")
 
 musica_de_fundo = pygame.mixer.music.load("mp3/trilhasonora.mp3")
 pygame.mixer.music.play(-1)
 
-barulho_tiro = pygame.mixer.Sound("mp3/som_tiro.mp3")
+barulho_tiro = pygame.mixer.Sound("mp3/laser.mp3")
 barulho_explosão = pygame.mixer.Sound("mp3/explosao.mp3")
 barulho_de_coleta = pygame.mixer.Sound("mp3/coleta.mp3")
+
 # Dimensões da janela
 LARGURAJANELA = 700
 ALTURAJANELA = 600
@@ -30,8 +32,11 @@ LARANJA = (242, 79, 0)
 
 # Parâmetros do jogo
 tempo_inicial = pygame.time.get_ticks()
+VEL_ESTRELA = 20
 VEL = 6
 VEL_ASTEROIDES = 3
+TAMANHO_ESTRELA_CADENTE = 50
+ESTRELA_CADENTE_INTERVALO = 1000
 ITERACOES = 30
 TAMANHOASTEROIDE = 70
 TAMANHORAIOS = 40
@@ -45,6 +50,9 @@ imagemAsteroide = pygame.transform.scale(imagemAsteroide, (TAMANHOASTEROIDE, TAM
 imagemNave = pygame.transform.scale(imagemNave, (50, 50))
 imageRaio = pygame.transform.scale(imageRaio, (TAMANHORAIOS, TAMANHORAIOS))  # Se necessário
 imageAlien = pygame.transform.scale(imageAlien, (TAMANHO_ALIEN, TAMANHO_ALIEN))
+imageEstrela = pygame.transform.scale(imageEstrela, (TAMANHO_ESTRELA_CADENTE,TAMANHO_ESTRELA_CADENTE))
+imageTiro = pygame.transform.scale(imageTiro,( TAMANHO_TIRO, TAMANHO_TIRO))
+
 # Configurações da janela
 janela = pygame.display.set_mode((LARGURAJANELA, ALTURAJANELA))
 pygame.display.set_caption("DESVIE DOS ASTEROIDES 1.0")
@@ -68,26 +76,32 @@ asteorides = []
 raios = []
 tiros = []
 aliens = []
+estrelas = []
 pontos = 0
 Tiros = 1
-tiros.clear()
 deve_continuar = True
 contador = 0
 contador_raio = 0
 contador_alien = 0
+contador_estrela = 0
 
 def gerartiro(x, y):
     return {"objRect": pygame.Rect(x + 20, y, TAMANHO_TIRO, TAMANHO_TIRO), "cor": LARANJA, "vel": -10}  # Velocidade negativa para mover para cima
 
 def gerarRaio():
-    posX = random.randint(0, LARGURAJANELA - TAMANHORAIOS)
+    posX = random.randint(0, LARGURAJANELA - TAMANHO_ESTRELA_CADENTE)
     posY = 0  
     return {"objRect": pygame.Rect(posX, posY, TAMANHORAIOS, TAMANHORAIOS), "cor": LARANJA, "vel": VEL + 2}
 
+def gerarestrela():
+    posX = random.randint(0, LARGURAJANELA - TAMANHO_ESTRELA_CADENTE)  # Corrigido para usar apenas 2 argumentos
+    posY = 0
+    return {"objRect": pygame.Rect(posX, posY, TAMANHO_ESTRELA_CADENTE, TAMANHO_ESTRELA_CADENTE), "cor": LARANJA, "vel": VEL_ESTRELA + 2}
+
 def gerarAlien():
-    posX = random.randint(0, LARGURAJANELA - TAMANHORAIOS)
+    posX = random.randint(0, LARGURAJANELA - TAMANHO_ALIEN)
     posY = 0  
-    return {"objRect": pygame.Rect(posX, posY, TAMANHORAIOS, TAMANHORAIOS), "cor": LARANJA, "vel": VEL + 2}
+    return {"objRect": pygame.Rect(posX, posY, TAMANHO_ALIEN, TAMANHO_ALIEN), "cor": LARANJA, "vel": VEL + 2}
 
 
 def moverAsteroide(asteroide):
@@ -95,6 +109,11 @@ def moverAsteroide(asteroide):
     
 def moverTiro(tiro):
     tiro["objRect"].y += tiro["vel"]
+    
+def moverEstrela(estrela):
+    estrela["objRect"].y += estrela["vel"]
+    
+
     
 def mostrarGameOver():
     font = pygame.font.Font(None, 74)
@@ -118,6 +137,9 @@ def reiniciarJogo():
     nave_jogador = {"objRect": pygame.Rect(300, 100, 50, 50), "cor": VERDE, "vel": VEL}
     asteorides.clear()
     raios.clear()
+    tiros.clear()
+    aliens.clear()
+    estrelas.clear()
     pontos = 0
     Tiros = 1
     tempo_inicial = pygame.time.get_ticks()
@@ -189,9 +211,17 @@ while True:
         if contador_alien >= ALINEN_INTERVALO:
             aliens.append(gerarAlien())
             contador_alien = 0    
+            
+        contador_estrela += 1
+        if contador_estrela >= ESTRELA_CADENTE_INTERVALO:
+            estrelas.append(gerarestrela())
+            contador_estrela = 0    
 
+        if pontos >= 15:
+            ESTRELA_CADENTE_INTERVALO = 100
         janela.fill(PRETO)
         
+        janela.blit(imagemFundo, (0, 0))
         moverJogador(nave_jogador, teclas, (LARGURAJANELA, ALTURAJANELA))
         janela.blit(imagemNave, nave_jogador["objRect"])  # Usando a imagem da nave
         
@@ -224,6 +254,16 @@ while True:
                 deve_continuar = False
                 aliens.remove(alien)   
                 
+        for estrela in estrelas[:]:
+            estrela["objRect"].y += estrela["vel"]
+            janela.blit(imageEstrela, estrela["objRect"])
+            if nave_jogador["objRect"].colliderect(estrela["objRect"]):
+                barulho_explosão.play()
+                mostrarGameOver()
+                deve_continuar = False
+                estrelas.remove(estrela)      
+                
+                    
             for tiro in tiros[:]:
                 if tiro["objRect"].colliderect(alien["objRect"]):
                     pontos += 1
@@ -232,7 +272,7 @@ while True:
                     break  # Para não modificar a lista durante a iteração   
                 
         for tiro in tiros:
-            janela.blit(imageRaio, tiro["objRect"])
+            janela.blit(imageTiro, tiro["objRect"])
     
         font = pygame.font.Font(None, 36)
         texto_pontos = font.render(f'Pontos: {pontos}', True, BRANCO)
